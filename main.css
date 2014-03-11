@@ -1,0 +1,10 @@
+#board {
+	position: absolute;
+	border: 1px solid #000000;
+}
+
+#clickable {
+	position: absolute;
+	border: 1px solid #000000;
+	z-index: 100;
+}
