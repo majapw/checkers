@@ -44,7 +44,7 @@ var Board = function(size) {
 		if (this.board[row])
 			return this.board[row][col];
 		else
-			return null
+			return null;
 	}
 
 	this.moveChecker = function(row, col, checker) {
@@ -127,51 +127,86 @@ var Board = function(size) {
 
 		var row = checker.loc[0]; var col = checker.loc[1];
 
-		var dir = 1; // vertical dir of play
-		if (checker.isRed()) {
-			dir = -1;
-		}
-
-		// regular checker moves
-		if (col - 1 >= 0 && row >= 0 && row < this.boardSize && 
-			!this.getChecker(row + dir, col - 1))
-			moves.push({ move : [row + dir, col - 1], jumped : [] });
-		if (col + 1 < this.boardSize && row >= 0 && row < this.boardSize &&
-			!this.getChecker(row + dir, col + 1))
-			moves.push({ move : [row + dir, col + 1], jumped : [] });
-
-		// jump moves, including multiple jumps
-		var jumps = new Array({ move : [row, col], jumped : [] });
-		while (jumps.length > 0) {
-			var next = jumps.shift();
-
-			nextLoc = next.move;
-			jumped = next.jumped;
-
-			// left jump
-			var leftChecker = this.getChecker(nextLoc[0] + dir, nextLoc[1] - 1);
-			if (leftChecker && leftChecker.color != checker.color) {
-				var leftRow = nextLoc[0] + 2*dir; leftCol = nextLoc[1] - 2;
-				if (leftRow >= 0 && leftRow < this.boardSize &&
-					leftCol >= 0 && leftCol < this.boardSize &&
-					!this.getChecker(leftRow, leftCol)) {
-					moves.push({ move : [leftRow, leftCol], jumped : jumped.concat([leftChecker]) });
-					jumps.push({ move : [leftRow, leftCol], jumped : jumped.concat([leftChecker]) });
+		if (checker.isKing) {
+			var count = 1;
+			for (var i = row + 1; i < this.boardSize; i++) {
+				if (col - count >= 0) {
+					var leftChecker = this.getChecker(i, col - count);
+					if (!leftChecker)
+						moves.push({ move : [i, col - count], jumped : [] });
 				}
+
+				if (col + count < this.boardSize) {
+					var rightChecker = this.getChecker(i, col + count);
+					if (!rightChecker)
+						moves.push({ move : [i, col + count], jumped : [] });
+				}
+				count += 1;
 			}
 
-			// right jump
-			var rightChecker = this.getChecker(nextLoc[0] + dir, nextLoc[1] + 1);
-			if (rightChecker && rightChecker.color != checker.color) {
-				var rightRow = nextLoc[0] + 2*dir; rightCol = nextLoc[1] + 2;
-				if (rightRow >= 0 && rightRow < this.boardSize &&
-					rightCol >= 0 && rightCol < this.boardSize && 
-					!this.getChecker(rightRow, rightCol)) {
-					moves.push({ move : [rightRow, rightCol], jumped : jumped.concat([rightChecker]) });
-					jumps.push({ move : [rightRow, rightCol], jumped : jumped.concat([rightChecker]) });
+			count = 1;
+			for (var j = row - 1; j >= 0; j--) {
+				if (col - count >= 0) {
+					var leftChecker = this.getChecker(j, col - count);
+					if (!leftChecker)
+						moves.push({ move : [j, col - count], jumped : [] });
 				}
+
+				if (col + count < this.boardSize) {
+					var rightChecker = this.getChecker(j, col + count);
+					if (!rightChecker)
+						moves.push({ move : [j, col + count], jumped : [] });
+				}
+				count += 1;
 			}
 
+		} else {
+			var dir = 1; // vertical dir of play
+			if (checker.isRed()) {
+				dir = -1;
+			}
+
+			// regular checker moves
+			if (col - 1 >= 0 && row >= 0 && row < this.boardSize && 
+				!this.getChecker(row + dir, col - 1))
+				moves.push({ move : [row + dir, col - 1], jumped : [] });
+			if (col + 1 < this.boardSize && row >= 0 && row < this.boardSize &&
+				!this.getChecker(row + dir, col + 1))
+				moves.push({ move : [row + dir, col + 1], jumped : [] });
+
+			// jump moves, including multiple jumps
+			var jumps = new Array({ move : [row, col], jumped : [] });
+			while (jumps.length > 0) {
+				var next = jumps.shift();
+
+				nextLoc = next.move;
+				jumped = next.jumped;
+
+				// left jump
+				var leftChecker = this.getChecker(nextLoc[0] + dir, nextLoc[1] - 1);
+				if (leftChecker && leftChecker.color != checker.color) {
+					var leftRow = nextLoc[0] + 2*dir; leftCol = nextLoc[1] - 2;
+					if (leftRow >= 0 && leftRow < this.boardSize &&
+						leftCol >= 0 && leftCol < this.boardSize &&
+						!this.getChecker(leftRow, leftCol)) {
+						moves.push({ move : [leftRow, leftCol], jumped : jumped.concat([leftChecker]) });
+						jumps.push({ move : [leftRow, leftCol], jumped : jumped.concat([leftChecker]) });
+					}
+				}
+
+				// right jump
+				var rightChecker = this.getChecker(nextLoc[0] + dir, nextLoc[1] + 1);
+				if (rightChecker && rightChecker.color != checker.color) {
+					var rightRow = nextLoc[0] + 2*dir; rightCol = nextLoc[1] + 2;
+					if (rightRow >= 0 && rightRow < this.boardSize &&
+						rightCol >= 0 && rightCol < this.boardSize && 
+						!this.getChecker(rightRow, rightCol)) {
+						moves.push({ move : [rightRow, rightCol], jumped : jumped.concat([rightChecker]) });
+						jumps.push({ move : [rightRow, rightCol], jumped : jumped.concat([rightChecker]) });
+					}
+				}
+
+			}
 		}
 		return moves;
 	}
