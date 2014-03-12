@@ -64,6 +64,7 @@ var Board = function(size) {
 
 		if ((checker.isRed() && row == 0) || 
 			(checker.isBlack() && row == this.boardSize - 1)) {
+			console.log("promote")
 			this.promoteChecker(checker);
 		}
 	}
@@ -128,34 +129,58 @@ var Board = function(size) {
 		var row = checker.loc[0]; var col = checker.loc[1];
 
 		if (checker.isKing) {
-			var count = 1;
+			var count = 1; var left = true; var right = true;
 			for (var i = row + 1; i < this.boardSize; i++) {
-				if (col - count >= 0) {
+				if (left && col - count >= 0) {
 					var leftChecker = this.getChecker(i, col - count);
-					if (!leftChecker)
+					if (!leftChecker) {
 						moves.push({ move : [i, col - count], jumped : [] });
+					} else {
+						left = false;
+						if (i + 1 < this.boardSize && col - count - 1 >= 0)
+							moves.push({ move : [i + 1, col - count - 1], 
+										 jumped : [leftChecker] });
+					}
 				}
 
-				if (col + count < this.boardSize) {
+				if (right && col + count < this.boardSize) {
 					var rightChecker = this.getChecker(i, col + count);
-					if (!rightChecker)
+					if (!rightChecker) {
 						moves.push({ move : [i, col + count], jumped : [] });
+					} else {
+						right = false;
+						if (i + 1 < this.boardSize && col + count + 1 < this.boardSize)
+							moves.push({ move : [i + 1, col + count + 1], 
+										 jumped : [rightChecker] });
+					}
 				}
 				count += 1;
 			}
 
-			count = 1;
+			count = 1; left = true; right = true;
 			for (var j = row - 1; j >= 0; j--) {
-				if (col - count >= 0) {
+				if (left && col - count >= 0) {
 					var leftChecker = this.getChecker(j, col - count);
-					if (!leftChecker)
+					if (!leftChecker) {
 						moves.push({ move : [j, col - count], jumped : [] });
+					} else {
+						left = false;
+						if (j - 1 >= 0 && col - count - 1 >= 0)
+							moves.push({ move : [j - 1, col - count - 1], 
+										 jumped : [leftChecker] });
+					}
 				}
 
 				if (col + count < this.boardSize) {
 					var rightChecker = this.getChecker(j, col + count);
-					if (!rightChecker)
+					if (!rightChecker) {
 						moves.push({ move : [j, col + count], jumped : [] });
+					} else {
+						right = false;
+						if (j - 1 >= 0 && col + count + 1 < this.boardSize)
+							moves.push({ move : [j - 1, col + count + 1], 
+										 jumped : [rightChecker] });
+					}
 				}
 				count += 1;
 			}
