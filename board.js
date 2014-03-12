@@ -10,6 +10,8 @@ var Board = function(size) {
 	this.blackCheckers = new Array();
 	this.redCheckers = new Array();
 
+	this.jumpedCheckers = null;
+
 	this.init = function() {
 		for (var row = 0; row < this.boardSize; row++) {
 			this.board.push([]);
@@ -39,7 +41,10 @@ var Board = function(size) {
 	}
 
 	this.getChecker = function(row, col) {
-		return this.board[row][col];
+		if (this.board[row])
+			return this.board[row][col];
+		else
+			return null
 	}
 
 	this.moveChecker = function(row, col, checker) {
@@ -49,18 +54,10 @@ var Board = function(size) {
 		this.board[row][col] = checker;
 		checker.setLocation(row, col);
 
-		if (Math.abs(row - loc[0]) > 1) {
-			if (row > loc[0]) {
-				if (col > loc[1]) 
-					this.removeChecker(this.board[row-1][col-1]);
-				else
-					this.removeChecker(this.board[row-1][col+1]);
-			} else {
-				if (col > loc[1]) 
-					this.removeChecker(this.board[row+1][col-1]);
-				else
-					this.removeChecker(this.board[row+1][col+1]);
-			}	
+		if (this.jumpedCheckers) {
+			for (var i = 0; i < this.jumpedCheckers.length; i++) 
+				this.removeChecker(this.jumpedCheckers[i]);
+			this.jumpedCheckers = null;
 		}
 
 		this.dispatchBoardEvent("add", {checker : checker});
@@ -86,34 +83,12 @@ var Board = function(size) {
 	}
 
 	this.isValidMove = function(row, col, checker) {
-		var curLoc = checker.loc;
-
-		if (row >= 0 && row < this.boardSize && col >= 0 && col < this.boardSize) {
-			if (!this.getChecker(row, col)) {
-				var dir = 1; // vertical direction of play
-				if (checker.isRed()) {
-					dir = -1;
-				}
-				if (checker.isKing) {
-					if (Math.abs(row - curLoc[0]) == Math.abs(col - curLoc[1]))
-						return true;
-				} else {
-					if (row == curLoc[0] + dir && Math.abs(col - curLoc[1]) == 1) {
-						return true;
-					} else if (row == curLoc[0] + 2 * dir) {
-						var leftChecker = this.getChecker(row - dir, col - 1);
-						if (leftChecker && col == curLoc[1] + 2 && 
-							leftChecker.color != checker.color) {
-							return true
-						}
-
-						var rightChecker = this.getChecker(row - dir, col + 1);
-						if (rightChecker && col == curLoc[1] - 2 &&
-							rightChecker.color != checker.color) {
-							return true;
-						}
-					}
-				}
+		var possibleMoves = this.getAllPossibleMoves(checker);
+		for (var i = 0; i < possibleMoves.length; i++) {
+			var move = possibleMoves[i].move;
+			if (row == move[0] && col == move[1]) {
+				this.jumpedCheckers = possibleMoves[i].jumped;
+				return true;
 			}
 		}
 		return false;
@@ -121,13 +96,11 @@ var Board = function(size) {
 
 	// really dumb artificial intelligence
 	this.makeRandomMove = function(color) {
-		var checkers; var dir;
+		var checkers;
 		if (color == 'black') {
 			checkers = this.blackCheckers.slice();
-			dir = 1;
 		} else {
 			checkers = this.redCheckers.slice();
-			dir = -1;
 		}
 
 		while (true) {
@@ -135,33 +108,71 @@ var Board = function(size) {
 			var checker = checkers[randIndex];
 			checkers.splice(randIndex, 1);
 
-			var possibleMoves = this.getAllPossibleMoves(checker, dir);
+			var possibleMoves = this.getAllPossibleMoves(checker);
+
 			if (possibleMoves.length > 0) {
 				randIndex = Math.floor(Math.random() * possibleMoves.length);
-				var move = possibleMoves[randIndex];
+				var move = possibleMoves[randIndex].move;
 				this.moveChecker(move[0], move[1], checker);
+				var jumped = possibleMoves[randIndex].jumped;
+				for (var i = 0; i < jumped.length; i++) 
+					this.removeChecker(jumped[i]);
 				break;
 			}
 		}
 	}
 
-	this.getAllPossibleMoves = function(checker, direction) {
+	this.getAllPossibleMoves = function(checker) {
 		var moves = new Array();
 
-		var row = checker.loc[0] + direction; var col = checker.loc[1];
-		if (this.isValidMove(row, col - 1, checker))
-			moves.push([row, col - 1]);
+		var row = checker.loc[0]; var col = checker.loc[1];
 
-		if (this.isValidMove(row, col + 1, checker))
-			moves.push([row, col + 1]);
+		var dir = 1; // vertical dir of play
+		if (checker.isRed()) {
+			dir = -1;
+		}
 
-		row += direction;
-		if (this.isValidMove(row, col - 2, checker))
-			moves.push([row, col - 2]);
+		// regular checker moves
+		if (col - 1 >= 0 && row >= 0 && row < this.boardSize && 
+			!this.getChecker(row + dir, col - 1))
+			moves.push({ move : [row + dir, col - 1], jumped : [] });
+		if (col + 1 < this.boardSize && row >= 0 && row < this.boardSize &&
+			!this.getChecker(row + dir, col + 1))
+			moves.push({ move : [row + dir, col + 1], jumped : [] });
 
-		if (this.isValidMove(row, col + 2, checker))
-			moves.push([row, col + 2]);
+		// jump moves, including multiple jumps
+		var jumps = new Array({ move : [row, col], jumped : [] });
+		while (jumps.length > 0) {
+			var next = jumps.shift();
 
+			nextLoc = next.move;
+			jumped = next.jumped;
+
+			// left jump
+			var leftChecker = this.getChecker(nextLoc[0] + dir, nextLoc[1] - 1);
+			if (leftChecker && leftChecker.color != checker.color) {
+				var leftRow = nextLoc[0] + 2*dir; leftCol = nextLoc[1] - 2;
+				if (leftRow >= 0 && leftRow < this.boardSize &&
+					leftCol >= 0 && leftCol < this.boardSize &&
+					!this.getChecker(leftRow, leftCol)) {
+					moves.push({ move : [leftRow, leftCol], jumped : jumped.concat([leftChecker]) });
+					jumps.push({ move : [leftRow, leftCol], jumped : jumped.concat([leftChecker]) });
+				}
+			}
+
+			// right jump
+			var rightChecker = this.getChecker(nextLoc[0] + dir, nextLoc[1] + 1);
+			if (rightChecker && rightChecker.color != checker.color) {
+				var rightRow = nextLoc[0] + 2*dir; rightCol = nextLoc[1] + 2;
+				if (rightRow >= 0 && rightRow < this.boardSize &&
+					rightCol >= 0 && rightCol < this.boardSize && 
+					!this.getChecker(rightRow, rightCol)) {
+					moves.push({ move : [rightRow, rightCol], jumped : jumped.concat([rightChecker]) });
+					jumps.push({ move : [rightRow, rightCol], jumped : jumped.concat([rightChecker]) });
+				}
+			}
+
+		}
 		return moves;
 	}
 
